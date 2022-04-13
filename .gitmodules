@@ -1,3 +1,15 @@
 [submodule "lib/ds-test"]
 	path = lib/ds-test
 	url = https://github.com/dapphub/ds-test
+[submodule "lib/ds-token"]
+	path = lib/ds-token
+	url = https://github.com/dapphub/ds-token
+[submodule "lib/dss-cdp-manager"]
+	path = lib/dss-cdp-manager
+	url = https://github.com/makerdao/dss-cdp-manager
+[submodule "lib/proxy-registry"]
+	path = lib/proxy-registry
+	url = https://github.com/makerdao/proxy-registry
+[submodule "lib/dss"]
+	path = lib/dss
+	url = https://github.com/chainx-org/dss
