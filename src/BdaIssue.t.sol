@@ -3,9 +3,10 @@ pragma solidity >=0.5.12;
 
 import {DSTest}  from "ds-test/test.sol";
 import {DSToken} from "ds-token/token.sol";
+import {DssProxyActions} from "dss-proxy-actions/DssProxyActions.sol";
 import {Vat}  from "dss/vat.sol";
 import {DssCdpManager} from "dss-cdp-manager/DssCdpManager.sol";
-import {ProxyRegistry, DSProxyFactory} from "proxy-registry/ProxyRegistry.sol";
+import {ProxyRegistry, DSProxyFactory, DSProxy} from "proxy-registry/ProxyRegistry.sol";
 import "./BdaIssue.sol";
 
 interface Hevm {
@@ -15,8 +16,8 @@ interface Hevm {
 contract BdaIssueTest is DSTest {
     Hevm hevm;
 
-//    DssProxyActions dssProxyActions;
-//    DSProxy proxy;
+    DssProxyActions dssProxyActions;
+    DSProxy proxy;
     DssCdpManager manager;
     DSToken gem;
     DSProxyFactory factory;
@@ -36,8 +37,8 @@ contract BdaIssueTest is DSTest {
         gem = new DSToken('BDA');
         factory = new DSProxyFactory();
         registry = new ProxyRegistry(address(factory));
-//	    dssProxyActions = address(new DssProxyActions());
-//        proxy = DSProxy(registry.build());
+	    dssProxyActions = new DssProxyActions();
+        proxy = DSProxy(registry.build());
         delay = 3 days;
 
         issue = new BdaIssue(address(gem), address(manager), address(registry), delay);
