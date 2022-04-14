@@ -6,7 +6,7 @@ import {DGD} from "dss-gem-joins/tokens/DGD.sol";
 import {GemJoin3} from "dss-gem-joins/join-3.sol";
 import {DSValue} from "ds-value/value.sol";
 import {DSToken} from "ds-token/token.sol";
-import {DssProxyActions} from "dss-proxy-actions/DssProxyActions.sol";
+import {DssProxyActions, DssProxyActionsEnd, DssProxyActionsDsr} from "dss-proxy-actions/DssProxyActions.sol";
 import {DssCdpManager} from "dss-cdp-manager/DssCdpManager.sol";
 import {ProxyRegistry, DSProxyFactory, DSProxy} from "proxy-registry/ProxyRegistry.sol";
 import "./BdaIssue.sol";
@@ -232,6 +232,9 @@ contract BdaIssueTest is DssDeployTestBase, ProxyCalls {
 
     uint256 constant startTime = 1649835136;
 
+    event log                    (string);
+    event log_uint                    (uint256);
+
     function setUp() public {
         super.setUp();
         deployKeepAuth();
@@ -260,6 +263,45 @@ contract BdaIssueTest is DssDeployTestBase, ProxyCalls {
         delay = 3 days;
 
         issue = new BdaIssue(address(gem), address(manager), address(registry), delay);
+        gem.setOwner(address(issue));
+    }
+
+    // optimized version from dss PR #78
+    function rpow(uint256 x, uint256 n, uint256 b) internal pure returns (uint256 z) {
+        assembly {
+            switch n case 0 {z := b}
+            default {
+                switch x case 0 {z := 0}
+                default {
+                    switch mod(n, 2) case 0 {z := b} default {z := x}
+                    let half := div(b, 2)  // for rounding.
+                    for {n := div(n, 2)} n {n := div(n, 2)} {
+                        let xx := mul(x, x)
+                        if shr(128, x) {revert(0, 0)}
+                        let xxRound := add(xx, half)
+                        if lt(xxRound, xx) {revert(0, 0)}
+                        x := div(xxRound, b)
+                        if mod(n, 2) {
+                            let zx := mul(z, x)
+                            if and(iszero(iszero(x)), iszero(eq(div(zx, x), z))) {revert(0, 0)}
+                            let zxRound := add(zx, half)
+                            if lt(zxRound, zx) {revert(0, 0)}
+                            z := div(zxRound, b)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x * y;
+        require(y == 0 || z / y == x);
+        z = z / RAY;
+    }
+
+    function sub(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require((z = x - y) <= x);
     }
 
     function test_destiny() public {
@@ -313,14 +355,60 @@ contract BdaIssueTest is DssDeployTestBase, ProxyCalls {
     }
 
     function test_adventure() public{
-        uint256 cdp = this.open(address(manager), "DGD", address(proxy));
-        assertEq(cdp, 1);
+        uint cdp = this.open(address(manager), "DGD", address(proxy));
+        dgd.approve(address(proxy), 3 * 10 ** 9);
+        uint prevBalance = dgd.balanceOf(address(this));
+        this.lockGemAndDraw(address(manager), address(jug), address(dgdJoin), address(daiJoin), cdp, 3 * 10 ** 9, 50 ether, true);
+        // 50 dai base debt
+        assertEq(dai.balanceOf(address(this)), 50 ether);
+        assertEq(dgd.balanceOf(address(this)), prevBalance - 3 * 10 ** 9);
+        // Stable rate 5% annualized
+        uint256 duty = 1000000001547125957863212448;
+        this.file(address(jug), bytes32("DGD"), bytes32("duty"), duty);
+        // 4 days debt , 1 day alpha
+        uint256 rate = rpow(duty, 4 days, RAY);
+        hevm.warp(now + delay + 1 days);
+        jug.drip("DGD");
+        (, uint prev,,,) = vat.ilks("DGD");
+        assertEq(rate, prev);
+        issue.adventure(1);
+        assertEq(issue.rates(cdp), rate);
+
+        uint256 alpha = issue.destiny(1 days);
+        uint256 diff = sub(rate, RAY);
+        uint256 reward = rmul(alpha, rmul(diff, 50 ether));
+        assertEq(gem.balanceOf(address(this)), reward);
+        // mint bda 0.065390953399390975 ether
+        assertEq(reward, 0.065390953399390975 ether);
+
+        hevm.warp(now + 1 days);
+        jug.drip("DGD");
+        issue.adventure(1);
+        assertEq(gem.balanceOf(address(this)) - reward, 0.016189670132835061 ether);
+        reward = gem.balanceOf(address(this)) ;
+        
+
+        hevm.warp(now + 1 days);
+        jug.drip("DGD");
+        issue.adventure(1);
+        assertEq(gem.balanceOf(address(this)) - reward, 0.016029916034149989 ether);
+        reward = gem.balanceOf(address(this)) - reward;
     }
 
     function test_treasure() public{
-        uint256 cdp = this.open(address(manager), "DGD", address(proxy));
-        assertEq(cdp, 1);
+        uint cdp = this.open(address(manager), "DGD", address(proxy));
+        this.open(address(manager), "DGD", address(proxy));
+        dgd.approve(address(proxy), 3 * 10 ** 9);
+        uint prevBalance = dgd.balanceOf(address(this));
+        this.lockGemAndDraw(address(manager), address(jug), address(dgdJoin), address(daiJoin), cdp, 3 * 10 ** 9, 50 ether, true);
+        assertEq(dai.balanceOf(address(this)), 50 ether);
+        assertEq(dgd.balanceOf(address(this)), prevBalance - 3 * 10 ** 9);
+        this.file(address(jug), bytes32("DGD"), bytes32("duty"), uint(1000000001547125957863212448));
+        hevm.warp(now + delay + 1 days);
+        jug.drip("DGD");
+        issue.treasure();
+        assertEq(issue.rates(cdp), 1000534829701054193563189148);
+        assertEq(gem.balanceOf(address(this)), 65390953399390975);
     }
-
 }
 

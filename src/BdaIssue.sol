@@ -81,7 +81,7 @@ contract BdaIssue {
     event Deny(address indexed usr);
 
     event File(bytes32 indexed what, uint256 data);
-
+    event log(string);
     // --- Init ---
     constructor (address gem_, address manager_, address registry_,uint256 delay_) public {
         wards[msg.sender] = 1;
@@ -150,7 +150,7 @@ contract BdaIssue {
     }
 
     // compute the next alpha value
-    function destiny(uint256 dur) public view returns (uint256){
+    function destiny(uint256 dur) public view returns (uint256) {
         return rmul(top, rpow(cut, dur / step, RAY));
     }
 
@@ -163,20 +163,20 @@ contract BdaIssue {
         address proxy = registry.proxies(msg.sender);
 
         require(own == msg.sender || own == proxy || manager.cdpCan(own, cdp, msg.sender) == 1, "Fate/not-own-cdp");
-
         address vat = manager.vat();
         address urn = manager.urns(cdp);
         bytes32 ilk = manager.ilks(cdp);
+        
         (, uint256 rate,,,) = VatLike(vat).ilks(ilk);
         (, uint256 art) = VatLike(vat).urns(ilk, urn);
 
+        if (rates[cdp] == 0) rates[cdp] = RAY;
         uint256 diff_rate = sub(rate, rates[cdp]);
-        require(diff_rate > 0, "Fate/diff-rate-zero");
+        if (diff_rate <= 0) {emit log("Fate/diff-rate-zero"); return;}
         uint256 alpha = destiny(dur);
-        require(alpha > 0, "Fate/alpha-zero");
+        if (alpha <= 0) {emit log("Fate/alpha-zero"); return;}
         uint256 reward = rmul(alpha, rmul(diff_rate, art));
-        require(reward > 0, "Fate/reward-zero");
-
+        if (reward <= 0) {emit log("Fate/reward-zero"); return;}
         gem.mint(msg.sender, reward);
         rates[cdp] = rate;
     }
