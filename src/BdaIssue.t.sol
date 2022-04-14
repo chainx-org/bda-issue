@@ -215,38 +215,6 @@ contract ProxyCalls {
     function wipeAllAndFreeGem(address, address, address, uint, uint) public {
         proxy.execute(dssProxyActions, msg.data);
     }
-
-    function end_freeETH(address a, address b, address c, uint d) public {
-        proxy.execute(dssProxyActionsEnd, abi.encodeWithSignature("freeETH(address,address,address,uint256)", a, b, c, d));
-    }
-
-    function end_freeGem(address a, address b, address c, uint d) public {
-        proxy.execute(dssProxyActionsEnd, abi.encodeWithSignature("freeGem(address,address,address,uint256)", a, b, c, d));
-    }
-
-    function end_pack(address a, address b, uint c) public {
-        proxy.execute(dssProxyActionsEnd, abi.encodeWithSignature("pack(address,address,uint256)", a, b, c));
-    }
-
-    function end_cashETH(address a, address b, bytes32 c, uint d) public {
-        proxy.execute(dssProxyActionsEnd, abi.encodeWithSignature("cashETH(address,address,bytes32,uint256)", a, b, c, d));
-    }
-
-    function end_cashGem(address a, address b, bytes32 c, uint d) public {
-        proxy.execute(dssProxyActionsEnd, abi.encodeWithSignature("cashGem(address,address,bytes32,uint256)", a, b, c, d));
-    }
-
-    function dsr_join(address a, address b, uint c) public {
-        proxy.execute(dssProxyActionsDsr, abi.encodeWithSignature("join(address,address,uint256)", a, b, c));
-    }
-
-    function dsr_exit(address a, address b, uint c) public {
-        proxy.execute(dssProxyActionsDsr, abi.encodeWithSignature("exit(address,address,uint256)", a, b, c));
-    }
-
-    function dsr_exitAll(address a, address b) public {
-        proxy.execute(dssProxyActionsDsr, abi.encodeWithSignature("exitAll(address,address)", a, b));
-    }
 }
 
 contract BdaIssueTest is DssDeployTestBase, ProxyCalls {
@@ -255,8 +223,6 @@ contract BdaIssueTest is DssDeployTestBase, ProxyCalls {
     DSValue pipDGD;
     Flipper dgdFlip;
 
-    DssProxyActions dssProxyActions;
-    DSProxy proxy;
     DssCdpManager manager;
     DSToken gem;
     DSProxyFactory factory;
@@ -289,7 +255,7 @@ contract BdaIssueTest is DssDeployTestBase, ProxyCalls {
         gem = new DSToken('BDA');
         factory = new DSProxyFactory();
         registry = new ProxyRegistry(address(factory));
-	    dssProxyActions = new DssProxyActions();
+        dssProxyActions = address(new DssProxyActions());
         proxy = DSProxy(registry.build());
         delay = 3 days;
 
@@ -347,13 +313,13 @@ contract BdaIssueTest is DssDeployTestBase, ProxyCalls {
     }
 
     function test_adventure() public{
-//        uint256 cdp = this.open(address(manager), "DGD", address(proxy));
-//        assertEq(cdp, 1);
+        uint256 cdp = this.open(address(manager), "DGD", address(proxy));
+        assertEq(cdp, 1);
     }
 
     function test_treasure() public{
-//        uint256 cdp = this.open(address(manager), "DGD", address(proxy));
-//        assertEq(cdp, 1);
+        uint256 cdp = this.open(address(manager), "DGD", address(proxy));
+        assertEq(cdp, 1);
     }
 
 }
