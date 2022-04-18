@@ -81,6 +81,8 @@ contract BdaIssue {
     event Deny(address indexed usr);
 
     event File(bytes32 indexed what, uint256 data);
+    event MintTo(address usr, uint256 amt);
+    event Rewards(address usr, uint256 amt);
     event log(string);
     // --- Init ---
     constructor (address gem_, address manager_, address registry_,uint256 delay_) public {
@@ -155,7 +157,7 @@ contract BdaIssue {
     }
 
     // --- Earnings ---
-    function adventure(uint256 cdp) public {
+    function adventure(uint256 cdp) public returns (uint256 reward){
         require(live == 1, "Fate/not-live");
         uint256 dur = sub(block.timestamp, add(start, delay));
         require(dur > 0, "Fate/not-start-up");
@@ -172,26 +174,28 @@ contract BdaIssue {
 
         if (rates[cdp] == 0) rates[cdp] = RAY;
         uint256 diff_rate = sub(rate, rates[cdp]);
-        if (diff_rate <= 0) {emit log("Fate/diff-rate-zero"); return;}
+        if (diff_rate <= 0) {emit log("Fate/diff-rate-zero"); return 0;}
         uint256 alpha = destiny(dur);
-        if (alpha <= 0) {emit log("Fate/alpha-zero"); return;}
-        uint256 reward = rmul(alpha, rmul(diff_rate, art));
-        if (reward <= 0) {emit log("Fate/reward-zero"); return;}
+        if (alpha <= 0) {emit log("Fate/alpha-zero"); return 0;}
+        reward = rmul(alpha, rmul(diff_rate, art));
+        if (reward <= 0) {emit log("Fate/reward-zero"); return 0;}
         gem.mint(msg.sender, reward);
         rates[cdp] = rate;
+        emit MintTo(msg.sender, reward);
     }
 
-    function treasure() external {
+    function treasure() external returns (uint256 rewards) {
         uint256[] memory ids = cdps(msg.sender);
         for (uint256 i = 0; i < ids.length; i++) {
-            adventure(ids[i]);
+            rewards += adventure(ids[i]);
         }
 
         address proxy = registry.proxies(msg.sender);
         ids = cdps(proxy);
         for (uint256 i = 0; i < ids.length; i++) {
-            adventure(ids[i]);
+            rewards += adventure(ids[i]);
         }
+        emit Rewards(msg.sender, rewards);
     }
 
     // --- Get CDPs ---
