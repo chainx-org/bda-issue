@@ -83,7 +83,7 @@ contract BdaIssue {
     event File(bytes32 indexed what, uint256 data);
     event MintTo(address usr, uint256 amt);
     // no risk, no treasure
-    event Treasures(address usr, uint256 amt, bool risk);
+    event Treasures(address usr, uint256 amt);
     event log(string);
     // --- Init ---
     constructor (address gem_, address manager_, address registry_,uint256 delay_) public {
@@ -157,9 +157,9 @@ contract BdaIssue {
         return rmul(top, rpow(cut, dur / step, RAY));
     }
 
-    // --- Earnings ---
-    function adventure(uint256 cdp, bool risk) public returns (uint256 reward){
-        require(live == 1, "Fate/not-live");
+    // --- Inquire ---
+
+    function risk(uint256 cdp) public view returns (uint256 reward, uint256 rate, uint256 diff_rate, uint256 alpha){
         uint256 dur = sub(block.timestamp, add(start, delay));
         require(dur > 0, "Fate/not-start-up");
         address own = manager.owns(cdp);
@@ -170,35 +170,57 @@ contract BdaIssue {
         address urn = manager.urns(cdp);
         bytes32 ilk = manager.ilks(cdp);
         
-        (, uint256 rate,,,) = VatLike(vat).ilks(ilk);
+        (, rate,,,) = VatLike(vat).ilks(ilk);
         (, uint256 art) = VatLike(vat).urns(ilk, urn);
 
-        if (rates[cdp] == 0) rates[cdp] = RAY;
-        uint256 diff_rate = sub(rate, rates[cdp]);
-        if (diff_rate <= 0) {emit log("Fate/diff-rate-zero"); return 0;}
-        uint256 alpha = destiny(dur);
-        if (alpha <= 0) {emit log("Fate/alpha-zero"); return 0;}
+        uint256 cdp_rate = rates[cdp];
+        if (rates[cdp] == 0) cdp_rate = RAY;
+        diff_rate = sub(rate, cdp_rate);
+        alpha = destiny(dur);
         reward = rmul(alpha, rmul(diff_rate, art));
-        if (reward <= 0) {emit log("Fate/reward-zero"); return 0;}
-        if (risk) {
-            gem.mint(msg.sender, reward);
-            rates[cdp] = rate;
-            emit MintTo(msg.sender, reward);
-        }
     }
 
-    function treasure(bool risk) external returns (uint256 rewards) {
+    function expected() public view returns (uint256 rewards) {
         uint256[] memory ids = cdps(msg.sender);
+        uint256 reward;
         for (uint256 i = 0; i < ids.length; i++) {
-            rewards += adventure(ids[i], risk);
+            (reward,,,) = risk(ids[i]);
+            rewards += reward;
         }
 
         address proxy = registry.proxies(msg.sender);
         ids = cdps(proxy);
         for (uint256 i = 0; i < ids.length; i++) {
-            rewards += adventure(ids[i], risk);
+            (reward,,,) = risk(ids[i]);
+            rewards += reward;
         }
-        emit Treasures(msg.sender, rewards, risk);
+    }
+
+    // --- Earnings ---
+    function adventure(uint256 cdp) public returns (uint256) {
+        require(live == 1, "Fate/not-live");
+        if (rates[cdp] == 0) rates[cdp] = RAY;
+        (uint256 reward, uint256 rate, uint256 diff_rate,  uint256 alpha) = risk(cdp);
+        if (diff_rate <= 0) {emit log("Fate/diff-rate-zero"); return 0;}
+        if (alpha <= 0) {emit log("Fate/alpha-zero"); return 0;}
+        if (reward <= 0) {emit log("Fate/reward-zero"); return 0;}
+        rates[cdp] = rate;
+        gem.mint(msg.sender, reward);
+        emit MintTo(msg.sender, reward);
+    }
+
+    function treasure() external returns (uint256 rewards) {
+        uint256[] memory ids = cdps(msg.sender);
+        for (uint256 i = 0; i < ids.length; i++) {
+            rewards += adventure(ids[i]);
+        }
+
+        address proxy = registry.proxies(msg.sender);
+        ids = cdps(proxy);
+        for (uint256 i = 0; i < ids.length; i++) {
+            rewards += adventure(ids[i]);
+        }
+        emit Treasures(msg.sender, rewards);
     }
 
     // --- Get CDPs ---

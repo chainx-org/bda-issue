@@ -371,7 +371,7 @@ contract BdaIssueTest is DssDeployTestBase, ProxyCalls {
         jug.drip("DGD");
         (, uint prev,,,) = vat.ilks("DGD");
         assertEq(rate, prev);
-        issue.adventure(1, true);
+        issue.adventure(1);
         assertEq(issue.rates(cdp), rate);
 
         uint256 alpha = issue.destiny(1 days);
@@ -383,14 +383,14 @@ contract BdaIssueTest is DssDeployTestBase, ProxyCalls {
 
         hevm.warp(now + 1 days);
         jug.drip("DGD");
-        issue.adventure(1, true);
+        issue.adventure(1);
         assertEq(gem.balanceOf(address(this)) - reward, 0.016189670132835061 ether);
         reward = gem.balanceOf(address(this)) ;
         
 
         hevm.warp(now + 1 days);
         jug.drip("DGD");
-        issue.adventure(1, true);
+        issue.adventure(1);
         assertEq(gem.balanceOf(address(this)) - reward, 0.016029916034149989 ether);
         reward = gem.balanceOf(address(this)) - reward;
     }
@@ -406,7 +406,7 @@ contract BdaIssueTest is DssDeployTestBase, ProxyCalls {
         this.file(address(jug), bytes32("DGD"), bytes32("duty"), uint(1000000001547125957863212448));
         hevm.warp(now + delay + 1 days);
         jug.drip("DGD");
-        issue.treasure(true);
+        issue.treasure();
         assertEq(issue.rates(cdp), 1000534829701054193563189148);
         assertEq(gem.balanceOf(address(this)), 65390953399390975);
     }
