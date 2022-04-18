@@ -89,7 +89,7 @@ contract BdaIssue {
     constructor (address gem_, address manager_, address registry_,uint256 delay_) public {
         wards[msg.sender] = 1;
         start = block.timestamp;
-        delay = delay_;
+        delay = (start + delay_) / (30 minutes) * (30 minutes) - start;
         gem = GemLike(gem_);
         manager = ManagerLike(manager_);
         registry = RegistryLike(registry_);
