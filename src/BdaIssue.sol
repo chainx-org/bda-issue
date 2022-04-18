@@ -158,7 +158,6 @@ contract BdaIssue {
     }
 
     // --- Inquire ---
-
     function risk(uint256 cdp) public view returns (uint256 reward, uint256 rate, uint256 diff_rate, uint256 alpha){
         uint256 dur = sub(block.timestamp, add(start, delay));
         require(dur > 0, "Fate/not-start-up");
@@ -207,6 +206,7 @@ contract BdaIssue {
         rates[cdp] = rate;
         gem.mint(msg.sender, reward);
         emit MintTo(msg.sender, reward);
+        return reward;
     }
 
     function treasure() external returns (uint256 rewards) {
