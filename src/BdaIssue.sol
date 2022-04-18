@@ -159,18 +159,20 @@ contract BdaIssue {
 
     // --- Inquire ---
     function risk(uint256 cdp) public view returns (uint256 reward, uint256 rate, uint256 diff_rate, uint256 alpha){
-        uint256 dur = sub(block.timestamp, add(start, delay));
-        require(dur > 0, "Fate/not-start-up");
-        address own = manager.owns(cdp);
-        address proxy = registry.proxies(msg.sender);
-
-        require(own == msg.sender || own == proxy || manager.cdpCan(own, cdp, msg.sender) == 1, "Fate/not-own-cdp");
         address vat = manager.vat();
         address urn = manager.urns(cdp);
         bytes32 ilk = manager.ilks(cdp);
-        
         (, rate,,,) = VatLike(vat).ilks(ilk);
         (, uint256 art) = VatLike(vat).urns(ilk, urn);
+
+        reward = 0;
+        diff_rate = 0;
+        alpha = 0;
+
+        if (live==0 || block.timestamp <= add(start, delay)){
+            return (reward, rate, diff_rate, alpha);
+        }
+        uint256 dur = sub(block.timestamp, add(start, delay));
 
         uint256 cdp_rate = rates[cdp];
         if (rates[cdp] == 0) cdp_rate = RAY;
@@ -196,15 +198,30 @@ contract BdaIssue {
     }
 
     // --- Earnings ---
-    function adventure(uint256 cdp) public returns (uint256) {
+    function adventure(uint256 cdp) public returns (uint256 reward){
         require(live == 1, "Fate/not-live");
+        require(block.timestamp > add(start, delay), "Fate/not-start-up");
+        uint256 dur = sub(block.timestamp, add(start, delay));
+        address own = manager.owns(cdp);
+        address proxy = registry.proxies(msg.sender);
+
+        require(own == msg.sender || own == proxy || manager.cdpCan(own, cdp, msg.sender) == 1, "Fate/not-own-cdp");
+        address vat = manager.vat();
+        address urn = manager.urns(cdp);
+        bytes32 ilk = manager.ilks(cdp);
+        
+        (, uint256 rate,,,) = VatLike(vat).ilks(ilk);
+        (, uint256 art) = VatLike(vat).urns(ilk, urn);
+
         if (rates[cdp] == 0) rates[cdp] = RAY;
-        (uint256 reward, uint256 rate, uint256 diff_rate,  uint256 alpha) = risk(cdp);
+        uint256 diff_rate = sub(rate, rates[cdp]);
         if (diff_rate <= 0) {emit log("Fate/diff-rate-zero"); return 0;}
+        uint256 alpha = destiny(dur);
         if (alpha <= 0) {emit log("Fate/alpha-zero"); return 0;}
+        reward = rmul(alpha, rmul(diff_rate, art));
         if (reward <= 0) {emit log("Fate/reward-zero"); return 0;}
-        rates[cdp] = rate;
         gem.mint(msg.sender, reward);
+        rates[cdp] = rate;
         emit MintTo(msg.sender, reward);
         return reward;
     }
