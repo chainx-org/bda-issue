@@ -89,7 +89,7 @@ contract BdaIssue {
     constructor (address gem_, address manager_, address registry_,uint256 delay_) public {
         wards[msg.sender] = 1;
         start = block.timestamp;
-        delay = (start + delay_) / (30 minutes) * (30 minutes) - start;
+        delay = ((start + delay_) / (30 minutes) + 1) * (30 minutes) - start;
         gem = GemLike(gem_);
         manager = ManagerLike(manager_);
         registry = RegistryLike(registry_);
@@ -209,7 +209,7 @@ contract BdaIssue {
         address vat = manager.vat();
         address urn = manager.urns(cdp);
         bytes32 ilk = manager.ilks(cdp);
-        
+
         (, uint256 rate,,,) = VatLike(vat).ilks(ilk);
         (, uint256 art) = VatLike(vat).urns(ilk, urn);
 
